@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html data-theme="light">
+<head>
+<title>Add KPI</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<script src="shared.js" defer></script>
+<style>
+  .page-card { background:var(--surface); border:none; border-radius:16px; box-shadow:var(--shadow); overflow:hidden; }
+  .page-card .card-header { background:var(--card-hdr); border:none; padding:20px 28px; }
+  .form-label { font-weight:600; font-size:0.83rem; color:var(--text-muted); margin-bottom:5px; letter-spacing:0.3px; }
+  .form-text  { font-size:0.75rem; color:var(--text-muted); }
+
+  .btn-save { background:linear-gradient(135deg,#0f3460,#4f8ef7); border:none; border-radius:9px; padding:11px 28px; font-weight:700; color:#fff; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 14px rgba(79,142,247,0.3); }
+  .btn-save:hover { opacity:0.9; transform:translateY(-2px); }
+
+  
+  #scorePreview { display:none; border-radius:12px; padding:16px 20px; margin-top:8px; border:2px solid transparent; transition:all 0.3s; background:var(--surface2); }
+
+  .metric-mini { border-radius:10px; padding:12px 14px; background:var(--surface2); border:1.5px solid var(--border); text-align:center; }
+  .metric-mini .val { font-size:1.4rem; font-weight:800; color:#4f8ef7; }
+  .metric-mini .lbl { font-size:0.72rem; color:var(--text-muted); margin-top:2px; }
+
+  .empty-state { color:var(--text-muted); font-size:0.88rem; }
+</style>
+</head>
+<body>
+
+<div id="navbarMount" data-page="add_kpi"></div>
+
+<div id="pageContent">
+<div class="container mt-4 pb-5" style="max-width:620px;">
+
+  <div id="successAlert" class="alert alert-success alert-dismissible fade show d-none animate-up" role="alert">
+    ✅ KPI saved! Employee score updated.
+    <button type="button" class="btn-close" onclick="this.parentElement.classList.add('d-none')"></button>
+  </div>
+  <div id="errorAlert" class="alert alert-danger alert-dismissible fade show d-none" role="alert">
+    ⚠️ <span id="errorMsg"></span>
+    <button type="button" class="btn-close" onclick="this.parentElement.classList.add('d-none')"></button>
+  </div>
+
+  <div class="page-card animate-up">
+    <div class="card-header">
+      <h5 class="text-white mb-0 fw-bold">📝 Add KPI Entry</h5>
+      <small class="text-white opacity-50">Score = Tasks×5 + Bugs×3 + Hours×0.5</small>
+    </div>
+    <div class="card-body p-4">
+      <form id="kpiForm" onsubmit="submitKPI(event)" novalidate>
+
+        <div class="row g-3 mb-3">
+          <div class="col-sm-8">
+            <label class="form-label">Select Employee <span class="text-danger">*</span></label>
+            <select id="empSelect" class="form-control" onchange="calcScore()" required>
+              <option value="">— Choose an employee —</option>
+            </select>
+            <div class="form-text">Add employees first via <a href="add_employee.html">Add Employee</a>.</div>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label">Month <span class="text-danger">*</span></label>
+            <input type="month" id="kpiMonth" class="form-control" required>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-sm-4">
+            <label class="form-label">✅ Tasks Completed</label>
+            <input type="number" id="tasks" class="form-control" placeholder="0" min="0" oninput="calcScore()" required>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label">🐛 Bugs Fixed</label>
+            <input type="number" id="bugs" class="form-control" placeholder="0" min="0" oninput="calcScore()" required>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label">⏱ Hours Worked</label>
+            <input type="number" id="hours" class="form-control" placeholder="0" min="0" oninput="calcScore()" required>
+          </div>
+        </div>
+
+        
+        <div id="scorePreview">
+          <div class="row g-2 mb-3">
+            <div class="col-4"><div class="metric-mini"><div class="val" id="prevTasks">0</div><div class="lbl">Tasks ×5</div></div></div>
+            <div class="col-4"><div class="metric-mini"><div class="val" id="prevBugs">0</div><div class="lbl">Bugs ×3</div></div></div>
+            <div class="col-4"><div class="metric-mini"><div class="val" id="prevHours">0</div><div class="lbl">Hours ×0.5</div></div></div>
+          </div>
+          <div class="d-flex align-items-center justify-content-between px-1">
+            <span class="fw-semibold" style="font-size:0.92rem;color:var(--text);">Calculated KPI Score:</span>
+            <span id="scoreVal" class="fw-bold fs-4" style="color:#4f8ef7;">0</span>
+          </div>
+          <div class="text-center mt-2">
+            <span id="perfBadge" class="badge fs-6 px-3 py-2"></span>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+          <button type="submit" class="btn-save">Save KPI</button>
+          <a href="dashboard.html" class="btn btn-outline-secondary">← Dashboard</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  
+  <div class="page-card mt-4 animate-up" style="animation-delay:0.1s;">
+    <div class="card-header d-flex justify-content-between align-items-center py-2 px-4">
+      <small class="text-white fw-semibold">Recent KPI Entries</small>
+      <button class="btn btn-sm btn-outline-danger py-0" onclick="clearAll()">Clear All</button>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-sm table-hover mb-0">
+        <thead><tr><th>Employee</th><th>Month</th><th>Tasks</th><th>Bugs</th><th>Hours</th><th>Score</th><th></th></tr></thead>
+        <tbody id="kpiHistoryBody"><tr><td colspan="7" class="text-center empty-state py-3">No entries yet</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+  function getEmployees(){ return JSON.parse(localStorage.getItem('kpi_employees')||'[]'); }
+  function saveEmployees(l){ localStorage.setItem('kpi_employees',JSON.stringify(l)); }
+  function getKPIs()       { return JSON.parse(localStorage.getItem('kpi_entries')||'[]'); }
+  function saveKPIs(l)     { localStorage.setItem('kpi_entries',JSON.stringify(l)); }
+
+  function calcKPI(t,b,h){ return Math.round(t*5+b*3+h*0.5); }
+
+  function calcScore(){
+    const t=parseInt(document.getElementById('tasks').value)||0;
+    const b=parseInt(document.getElementById('bugs').value)||0;
+    const h=parseInt(document.getElementById('hours').value)||0;
+    const score=calcKPI(t,b,h);
+    const preview=document.getElementById('scorePreview');
+    preview.style.display='block';
+    document.getElementById('prevTasks').textContent=t*5;
+    document.getElementById('prevBugs').textContent=b*3;
+    document.getElementById('prevHours').textContent=Math.round(h*0.5);
+    document.getElementById('scoreVal').textContent=score;
+    const badge=document.getElementById('perfBadge');
+    if(score>=120){ badge.textContent='🏆 Excellent'; badge.className='badge bg-success fs-6 px-3 py-2'; preview.style.border='2px solid #28a745'; preview.style.background=''; }
+    else if(score>=90){ badge.textContent='👍 Good'; badge.className='badge bg-warning text-dark fs-6 px-3 py-2'; preview.style.border='2px solid #ffc107'; }
+    else { badge.textContent='⚠️ Poor'; badge.className='badge bg-danger fs-6 px-3 py-2'; preview.style.border='2px solid #dc3545'; }
+  }
+
+  function submitKPI(e){
+    e.preventDefault();
+    const empId=document.getElementById('empSelect').value;
+    const month=document.getElementById('kpiMonth').value;
+    if(!empId){ showErr('Please select an employee.'); return; }
+    if(!month){ showErr('Please select a month.'); return; }
+    const t=parseInt(document.getElementById('tasks').value)||0;
+    const b=parseInt(document.getElementById('bugs').value)||0;
+    const h=parseInt(document.getElementById('hours').value)||0;
+    const score=calcKPI(t,b,h);
+    const employees=getEmployees();
+    const emp=employees.find(e=>e.id==empId);
+    emp.kpi=score; saveEmployees(employees);
+    const entries=getKPIs();
+    entries.unshift({id:Date.now(),empId:emp.id,empName:emp.name,month,tasks:t,bugs:b,hours:h,score});
+    saveKPIs(entries);
+    document.getElementById('successAlert').classList.remove('d-none');
+    document.getElementById('kpiForm').reset();
+    document.getElementById('scorePreview').style.display='none';
+    renderHistory();
+  }
+
+  function showErr(msg){ document.getElementById('errorMsg').textContent=msg; document.getElementById('errorAlert').classList.remove('d-none'); }
+
+  function deleteEntry(id){
+    if(!confirm('Delete this entry?')) return;
+    saveKPIs(getKPIs().filter(e=>e.id!==id)); renderHistory();
+  }
+  function clearAll(){
+    if(!confirm('Clear ALL KPI entries?')) return;
+    saveKPIs([]); renderHistory();
+  }
+
+  function fmtMonth(m){
+    if(!m) return '—';
+    const[y,mo]=m.split('-');
+    return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1]+' '+y;
+  }
+
+  function renderHistory(){
+    const entries=getKPIs();
+    const tbody=document.getElementById('kpiHistoryBody');
+    if(!entries.length){ tbody.innerHTML='<tr><td colspan="7" class="text-center empty-state py-3">No entries yet</td></tr>'; return; }
+    tbody.innerHTML=entries.map(e=>{
+      const badge=e.score>=120?'<span class="badge bg-success">Excellent</span>':e.score>=90?'<span class="badge bg-warning text-dark">Good</span>':'<span class="badge bg-danger">Poor</span>';
+      return `<tr><td>${e.empName}</td><td>${fmtMonth(e.month)}</td><td>${e.tasks}</td><td>${e.bugs}</td><td>${e.hours}</td><td>${badge} <strong>${e.score}</strong></td><td><button class="btn btn-danger btn-sm py-0 px-2" onclick="deleteEntry(${e.id})">✕</button></td></tr>`;
+    }).join('');
+  }
+
+  function populateEmployees(){
+    const sel=document.getElementById('empSelect');
+    sel.innerHTML='<option value="">— Choose an employee —</option>';
+    getEmployees().forEach(emp=>{ sel.innerHTML+=`<option value="${emp.id}">${emp.name} — ${emp.department}</option>`; });
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.getElementById('kpiMonth').value=new Date().toISOString().slice(0,7);
+    populateEmployees();
+    renderHistory();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html data-theme="light">
+<head>
+<title>Add Employee</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<script src="shared.js" defer></script>
+<style>
+  .page-card { background:var(--surface); border:none; border-radius:16px; box-shadow:var(--shadow); overflow:hidden; }
+  .page-card .card-header { background:var(--card-hdr); border-radius:16px 16px 0 0 !important; padding:20px 28px; border:none; }
+  .form-label { font-weight:600; font-size:0.83rem; color:var(--text-muted); margin-bottom:5px; letter-spacing:0.3px; }
+  .form-text  { font-size:0.75rem; color:var(--text-muted); }
+  .btn-add { background:linear-gradient(135deg,#11998e,#38ef7d); border:none; border-radius:9px; padding:11px 28px; font-weight:700; color:#fff; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 14px rgba(17,153,142,0.3); }
+  .btn-add:hover { opacity:0.9; transform:translateY(-2px); box-shadow:0 6px 18px rgba(17,153,142,0.4); }
+  .badge-score { padding:4px 12px; border-radius:99px; font-size:0.78rem; font-weight:700; }
+  #successAlert { display:none; }
+  .empty-state { color:var(--text-muted); font-size:0.88rem; }
+</style>
+</head>
+<body>
+
+<div id="navbarMount" data-page="add_employee"></div>
+
+<div id="pageContent">
+<div class="container mt-4 pb-5" style="max-width:580px;">
+
+  <div id="successAlert" class="alert alert-success alert-dismissible fade show animate-up" role="alert">
+    ✅ Employee added successfully!
+    <button type="button" class="btn-close" onclick="document.getElementById('successAlert').style.display='none'"></button>
+  </div>
+
+  <div class="page-card animate-up">
+    <div class="card-header">
+      <h5 class="text-white mb-0 fw-bold">👤 Add New Employee</h5>
+      <small class="text-white opacity-50">Fill in the details below</small>
+    </div>
+    <div class="card-body p-4">
+      <form id="addEmployeeForm" onsubmit="addEmployee(event)">
+        <div class="mb-3">
+          <label class="form-label">Full Name <span class="text-danger">*</span></label>
+          <input type="text" id="empName" class="form-control" placeholder="e.g. Raj Kumar" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Department <span class="text-danger">*</span></label>
+          <input type="text" id="empDept" class="form-control" placeholder="e.g. IT, Cloud, Security" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Designation <span class="text-danger">*</span></label>
+          <input type="text" id="empDesig" class="form-control" placeholder="e.g. Developer, Analyst" required>
+        </div>
+        <div class="mb-4">
+          <label class="form-label">Initial KPI Score <span class="text-danger">*</span></label>
+          <input type="number" id="empKpi" class="form-control" placeholder="0 – 150" min="0" max="150" required>
+          <div class="form-text">≥120 = Excellent &nbsp;|&nbsp; ≥90 = Good &nbsp;|&nbsp; &lt;90 = Poor</div>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn-add">Add Employee</button>
+          <a href="dashboard.html" class="btn btn-outline-secondary">← Dashboard</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Preview Table -->
+  <div class="page-card mt-4 animate-up" style="animation-delay:0.1s;">
+    <div class="card-header d-flex justify-content-between align-items-center py-2 px-4">
+      <small class="text-white fw-semibold">Current Employees (<span id="empCount">0</span>)</small>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-sm table-hover mb-0">
+        <thead><tr><th>#</th><th>Name</th><th>Department</th><th>KPI</th><th></th></tr></thead>
+        <tbody id="empPreviewBody">
+          <tr><td colspan="5" class="text-center empty-state py-3">No employees yet</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+  function getEmployees(){ return JSON.parse(localStorage.getItem('kpi_employees')||'[]'); }
+  function saveEmployees(l){ localStorage.setItem('kpi_employees',JSON.stringify(l)); }
+
+  function addEmployee(e){
+    e.preventDefault();
+    const employees=getEmployees();
+    employees.push({
+      id: Date.now(),
+      name:        document.getElementById('empName').value.trim(),
+      department:  document.getElementById('empDept').value.trim(),
+      designation: document.getElementById('empDesig').value.trim(),
+      kpi:         parseInt(document.getElementById('empKpi').value)
+    });
+    saveEmployees(employees);
+    document.getElementById('successAlert').style.display='block';
+    document.getElementById('addEmployeeForm').reset();
+    renderPreview();
+  }
+
+  function removeEmployee(id){
+    if(!confirm('Remove this employee?')) return;
+    saveEmployees(getEmployees().filter(e=>e.id!==id));
+    renderPreview();
+  }
+
+  function renderPreview(){
+    const employees=getEmployees();
+    document.getElementById('empCount').textContent=employees.length;
+    const tbody=document.getElementById('empPreviewBody');
+    if(!employees.length){ tbody.innerHTML='<tr><td colspan="5" class="text-center empty-state py-3">No employees yet</td></tr>'; return; }
+    tbody.innerHTML=employees.map((emp,i)=>{
+      const cls=emp.kpi>=120?'bg-success':emp.kpi>=90?'bg-warning text-dark':'bg-danger';
+      return `<tr><td>${i+1}</td><td><strong>${emp.name}</strong></td><td>${emp.department}</td><td><span class="badge ${cls}">${emp.kpi}</span></td><td><button class="btn btn-danger btn-sm py-0 px-2" onclick="removeEmployee(${emp.id})">✕</button></td></tr>`;
+    }).join('');
+  }
+
+  document.addEventListener('DOMContentLoaded', renderPreview);
+</script>
+</body>
+</html>
