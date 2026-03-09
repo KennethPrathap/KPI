@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html data-theme="light">
+<head>
+<title>Attendance Tracker</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<script src="shared.js" defer></script>
+<style>
+  .page-card { background:var(--surface); border:none; border-radius:16px; box-shadow:var(--shadow); overflow:hidden; margin-bottom:20px; }
+  .page-card .card-header { background:var(--card-hdr); border:none; padding:14px 22px; }
+  .att-type { padding:3px 10px; border-radius:99px; font-size:0.72rem; font-weight:700; }
+  .att-present  { background:rgba(40,167,69,0.15);  color:#28a745; }
+  .att-absent   { background:rgba(220,53,69,0.15);  color:#dc3545; }
+  .att-leave    { background:rgba(255,193,7,0.15);  color:#d4a017; }
+  .att-wfh      { background:rgba(79,142,247,0.15); color:#4f8ef7; }
+  .stat-chip { display:inline-flex; align-items:center; gap:7px; background:var(--surface); border-radius:10px; padding:8px 16px; box-shadow:var(--shadow); font-size:0.83rem; color:var(--text); }
+  .chip-dot { width:10px; height:10px; border-radius:50%; }
+  .empty-state { color:var(--text-muted); font-size:0.88rem; }
+  .form-label { font-weight:600; font-size:0.83rem; color:var(--text-muted); margin-bottom:5px; }
+  .btn-add { background:linear-gradient(135deg,#0f3460,#4f8ef7); border:none; border-radius:9px; padding:9px 22px; font-weight:700; color:#fff; cursor:pointer; transition:all 0.2s; }
+  .btn-add:hover { opacity:0.9; transform:translateY(-1px); }
+</style>
+</head>
+<body>
+<div id="navbarMount" data-page="attendance"></div>
+<div id="pageContent">
+<div class="container mt-4 pb-5">
+
+  <div class="d-flex flex-wrap gap-3 mb-4 animate-up">
+    <div class="stat-chip"><span class="chip-dot" style="background:#28a745"></span>Present: <strong id="chipPresent">0</strong></div>
+    <div class="stat-chip"><span class="chip-dot" style="background:#dc3545"></span>Absent: <strong id="chipAbsent">0</strong></div>
+    <div class="stat-chip"><span class="chip-dot" style="background:#d4a017"></span>Leave: <strong id="chipLeave">0</strong></div>
+    <div class="stat-chip"><span class="chip-dot" style="background:#4f8ef7"></span>WFH: <strong id="chipWfh">0</strong></div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-4">
+      <div class="page-card animate-up">
+        <div class="card-header"><h6 class="text-white mb-0 fw-semibold">📅 Log Attendance</h6></div>
+        <div class="card-body p-4">
+          <div class="mb-3">
+            <label class="form-label">Employee</label>
+            <select id="attEmp" class="form-control">
+              <option value="">— Select employee —</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Date</label>
+            <input type="date" id="attDate" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Status</label>
+            <select id="attStatus" class="form-control">
+              <option value="Present">✅ Present</option>
+              <option value="Absent">❌ Absent</option>
+              <option value="Leave">🌴 Leave</option>
+              <option value="WFH">🏠 Work From Home</option>
+            </select>
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Note (optional)</label>
+            <input type="text" id="attNote" class="form-control" placeholder="e.g. Sick leave, Annual leave…">
+          </div>
+          <button class="btn-add w-100" onclick="logAttendance()">Log Attendance</button>
+          <div id="attSuccess" style="display:none;margin-top:10px;" class="alert alert-success py-2 mb-0">✅ Logged successfully!</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <div class="page-card animate-up" style="animation-delay:0.1s">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="text-white mb-0 fw-semibold">📋 Attendance Records</h6>
+          <div class="d-flex gap-2">
+            <select id="filterEmp" class="form-control form-control-sm" style="width:auto;font-size:0.78rem;" onchange="renderRecords()">
+              <option value="">All Employees</option>
+            </select>
+            <select id="filterStatus" class="form-control form-control-sm" style="width:auto;font-size:0.78rem;" onchange="renderRecords()">
+              <option value="">All Status</option>
+              <option>Present</option><option>Absent</option><option>Leave</option><option>WFH</option>
+            </select>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="table mb-0">
+            <thead><tr><th>Employee</th><th>Date</th><th>Status</th><th>Note</th><th></th></tr></thead>
+            <tbody id="attTableBody">
+              <tr><td colspan="5" class="text-center empty-state py-4">No records yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Per-employee summary -->
+      <div class="page-card animate-up" style="animation-delay:0.15s">
+        <div class="card-header"><h6 class="text-white mb-0 fw-semibold">📊 Employee Attendance Summary</h6></div>
+        <div style="overflow-x:auto">
+          <table class="table mb-0">
+            <thead><tr><th>Employee</th><th>Present</th><th>Absent</th><th>Leave</th><th>WFH</th><th>Attendance %</th></tr></thead>
+            <tbody id="summaryTableBody">
+              <tr><td colspan="6" class="text-center empty-state py-4">No records yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+  function getEmployees()    { return JSON.parse(localStorage.getItem('kpi_employees')||'[]'); }
+  function getAttendance()   { return JSON.parse(localStorage.getItem('kpi_attendance')||'[]'); }
+  function saveAttendance(l) { localStorage.setItem('kpi_attendance', JSON.stringify(l)); }
+
+  function logAttendance() {
+    const empId  = document.getElementById('attEmp').value;
+    const date   = document.getElementById('attDate').value;
+    const status = document.getElementById('attStatus').value;
+    const note   = document.getElementById('attNote').value.trim();
+    if (!empId || !date) { alert('Please select an employee and date.'); return; }
+    const emp = getEmployees().find(e => e.id == empId);
+    const records = getAttendance();
+    const existing = records.findIndex(r => r.empId == empId && r.date === date);
+    const entry = { id: Date.now(), empId: emp.id, empName: emp.name, date, status, note };
+    if (existing >= 0) records[existing] = entry;
+    else records.unshift(entry);
+    saveAttendance(records);
+    document.getElementById('attNote').value = '';
+    const s = document.getElementById('attSuccess');
+    s.style.display = 'block';
+    setTimeout(() => s.style.display = 'none', 2000);
+    renderRecords();
+    renderSummary();
+    updateChips();
+  }
+
+  function deleteRecord(id) {
+    if (!confirm('Delete this record?')) return;
+    saveAttendance(getAttendance().filter(r => r.id !== id));
+    renderRecords(); renderSummary(); updateChips();
+  }
+
+  function statusCls(s) {
+    if (s === 'Present') return 'att-present';
+    if (s === 'Absent')  return 'att-absent';
+    if (s === 'Leave')   return 'att-leave';
+    return 'att-wfh';
+  }
+
+  function renderRecords() {
+    const filterEmp    = document.getElementById('filterEmp').value;
+    const filterStatus = document.getElementById('filterStatus').value;
+    let records = getAttendance();
+    if (filterEmp)    records = records.filter(r => r.empId == filterEmp);
+    if (filterStatus) records = records.filter(r => r.status === filterStatus);
+    const tbody = document.getElementById('attTableBody');
+    if (!records.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-state py-4">No records found.</td></tr>'; return; }
+    tbody.innerHTML = records.map(r => `
+      <tr>
+        <td><strong>${r.empName}</strong></td>
+        <td>${new Date(r.date).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</td>
+        <td><span class="att-type ${statusCls(r.status)}">${r.status}</span></td>
+        <td style="color:var(--text-muted);font-size:0.82rem">${r.note||'—'}</td>
+        <td><button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteRecord(${r.id})">✕</button></td>
+      </tr>`).join('');
+  }
+
+  function renderSummary() {
+    const employees = getEmployees();
+    const records   = getAttendance();
+    const tbody = document.getElementById('summaryTableBody');
+    if (!records.length) { tbody.innerHTML = '<tr><td colspan="6" class="text-center empty-state py-4">No records yet.</td></tr>'; return; }
+    tbody.innerHTML = employees.map(emp => {
+      const empRec  = records.filter(r => r.empId == emp.id);
+      if (!empRec.length) return '';
+      const present = empRec.filter(r => r.status === 'Present').length;
+      const absent  = empRec.filter(r => r.status === 'Absent').length;
+      const leave   = empRec.filter(r => r.status === 'Leave').length;
+      const wfh     = empRec.filter(r => r.status === 'WFH').length;
+      const total   = empRec.length;
+      const pct     = Math.round(((present + wfh) / total) * 100);
+      const color   = pct >= 90 ? '#28a745' : pct >= 70 ? '#ffc107' : '#dc3545';
+      return `<tr>
+        <td><strong>${emp.name}</strong></td>
+        <td style="color:#28a745;font-weight:700">${present}</td>
+        <td style="color:#dc3545;font-weight:700">${absent}</td>
+        <td style="color:#d4a017;font-weight:700">${leave}</td>
+        <td style="color:#4f8ef7;font-weight:700">${wfh}</td>
+        <td><strong style="color:${color}">${pct}%</strong></td>
+      </tr>`;
+    }).filter(Boolean).join('') || '<tr><td colspan="6" class="text-center empty-state py-4">No records yet.</td></tr>';
+  }
+
+  function updateChips() {
+    const records = getAttendance();
+    document.getElementById('chipPresent').textContent = records.filter(r=>r.status==='Present').length;
+    document.getElementById('chipAbsent').textContent  = records.filter(r=>r.status==='Absent').length;
+    document.getElementById('chipLeave').textContent   = records.filter(r=>r.status==='Leave').length;
+    document.getElementById('chipWfh').textContent     = records.filter(r=>r.status==='WFH').length;
+  }
+
+  function populateSelects() {
+    const employees = getEmployees();
+    const opts = employees.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    document.getElementById('attEmp').innerHTML    = '<option value="">— Select employee —</option>' + opts;
+    document.getElementById('filterEmp').innerHTML = '<option value="">All Employees</option>' + opts;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('attDate').value = new Date().toISOString().slice(0,10);
+    populateSelects();
+    renderRecords();
+    renderSummary();
+    updateChips();
+  });
+</script>
+</body>
+</html>

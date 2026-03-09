@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html data-theme="light">
+<head>
+<title>Employee Profile</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<script src="shared.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  .profile-hero { background:var(--card-hdr); border-radius:16px; padding:28px 32px; color:#fff; margin-bottom:24px; display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+  .profile-avatar { width:72px; height:72px; border-radius:20px; background:linear-gradient(135deg,#4f8ef7,#a78bfa); display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:800; flex-shrink:0; box-shadow:0 4px 20px rgba(79,142,247,0.4); }
+  .profile-name { font-size:1.5rem; font-weight:800; margin-bottom:3px; }
+  .profile-sub  { font-size:0.85rem; opacity:0.65; }
+  .profile-score { margin-left:auto; text-align:right; }
+  .profile-score .big { font-size:3rem; font-weight:900; line-height:1; }
+  .profile-score .lbl { font-size:0.72rem; opacity:0.6; text-transform:uppercase; letter-spacing:0.5px; }
+
+  .info-card { background:var(--surface); border-radius:14px; box-shadow:var(--shadow); border:none; overflow:hidden; margin-bottom:20px; }
+  .info-card .card-header { background:var(--card-hdr); border:none; padding:13px 20px; }
+  .info-card .card-body   { padding:20px; }
+
+  .info-row { display:flex; gap:8px; padding:9px 0; border-bottom:1px solid var(--border); font-size:0.87rem; }
+  .info-row:last-child { border-bottom:none; }
+  .info-label { color:var(--text-muted); width:130px; flex-shrink:0; font-weight:600; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.3px; }
+  .info-val   { color:var(--text); font-weight:500; }
+
+  .stat-mini { background:var(--surface2); border-radius:10px; padding:14px 16px; text-align:center; border:1px solid var(--border); }
+  .stat-mini .v { font-size:1.5rem; font-weight:800; }
+  .stat-mini .l { font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px; margin-top:3px; }
+
+  .chart-wrap { position:relative; height:220px; }
+
+  .target-box { background:var(--surface2); border-radius:12px; padding:16px 18px; border:1px solid var(--border); }
+  .target-bar-track { height:10px; border-radius:99px; background:var(--border); overflow:hidden; margin:10px 0 6px; }
+  .target-bar-fill  { height:100%; border-radius:99px; background:linear-gradient(90deg,#4f8ef7,#00e5a0); transition:width 1s ease; }
+
+  .pill { padding:4px 12px; border-radius:99px; font-size:0.76rem; font-weight:700; }
+  .pill-excellent { background:rgba(40,167,69,0.15);  color:#28a745; }
+  .pill-good      { background:rgba(255,193,7,0.15);  color:#d4a017; }
+  .pill-poor      { background:rgba(220,53,69,0.15);  color:#dc3545; }
+
+  .month-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); font-size:0.87rem; }
+  .month-row:last-child { border-bottom:none; }
+  .sbar-wrap { display:flex; align-items:center; gap:8px; flex:1; }
+  .sbar { flex:1; height:6px; border-radius:99px; background:var(--border); overflow:hidden; max-width:80px; }
+  .sbar-fill { height:100%; border-radius:99px; }
+
+  .edit-target-form { display:none; margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
+  .btn-set-target { background:linear-gradient(135deg,#4f8ef7,#a78bfa); border:none; border-radius:8px; padding:7px 18px; color:#fff; font-weight:700; font-size:0.82rem; cursor:pointer; transition:opacity 0.2s; }
+  .btn-set-target:hover { opacity:0.9; }
+
+  .ann-item { padding:10px 0; border-bottom:1px solid var(--border); }
+  .ann-item:last-child { border-bottom:none; }
+  .ann-title { font-weight:700; font-size:0.88rem; color:var(--text); }
+  .ann-body  { font-size:0.8rem; color:var(--text-muted); margin-top:2px; }
+  .ann-date  { font-size:0.7rem; color:var(--text-muted); margin-top:4px; }
+
+  .empty-state { color:var(--text-muted); font-size:0.88rem; }
+</style>
+</head>
+<body>
+<div id="navbarMount" data-page="dashboard"></div>
+<div id="pageContent">
+<div class="container mt-4 pb-5" style="max-width:900px;">
+
+  <div class="mb-3">
+    <a href="dashboard.html" class="nav-btn nav-btn-ghost" style="font-size:0.8rem;padding:5px 14px;">← Back to Dashboard</a>
+  </div>
+
+  <!-- Hero -->
+  <div class="profile-hero animate-up" id="profileHero">
+    <div class="profile-avatar" id="profileAvatar">?</div>
+    <div>
+      <div class="profile-name" id="profileName">—</div>
+      <div class="profile-sub" id="profileSub">—</div>
+      <div style="margin-top:10px;" id="profileBadge"></div>
+    </div>
+    <div class="profile-score">
+      <div class="big" id="profileScore">—</div>
+      <div class="lbl">KPI Score</div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3" id="statMiniRow">
+    <div class="col-6 col-md-3"><div class="stat-mini"><div class="v" id="smAvg">—</div><div class="l">Avg Score</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-mini"><div class="v" id="smBest">—</div><div class="l">Best Score</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-mini"><div class="v" id="smMonths">—</div><div class="l">Months Tracked</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-mini"><div class="v" id="smStreak">—</div><div class="l">🔥 Streak</div></div></div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-5">
+
+      <!-- Employee Info -->
+      <div class="info-card animate-up" style="animation-delay:0.1s">
+        <div class="card-header"><h6 class="text-white mb-0 fw-semibold">👤 Employee Info</h6></div>
+        <div class="card-body">
+          <div class="info-row"><span class="info-label">Name</span><span class="info-val" id="infoName">—</span></div>
+          <div class="info-row"><span class="info-label">Department</span><span class="info-val" id="infoDept">—</span></div>
+          <div class="info-row"><span class="info-label">Designation</span><span class="info-val" id="infoDesig">—</span></div>
+          <div class="info-row"><span class="info-label">Current KPI</span><span class="info-val" id="infoKpi">—</span></div>
+          <div class="info-row"><span class="info-label">Status</span><span class="info-val" id="infoStatus">—</span></div>
+          <div class="info-row"><span class="info-label">Joined</span><span class="info-val" id="infoJoined">—</span></div>
+        </div>
+      </div>
+
+      <!-- KPI Target -->
+      <div class="info-card animate-up" style="animation-delay:0.15s">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="text-white mb-0 fw-semibold">🎯 KPI Target</h6>
+          <button class="nav-btn nav-btn-ghost" style="font-size:0.72rem;padding:3px 10px;" onclick="toggleTargetForm()">Edit</button>
+        </div>
+        <div class="card-body">
+          <div class="target-box">
+            <div class="d-flex justify-content-between align-items-center">
+              <span style="font-size:0.85rem;font-weight:600;color:var(--text)">Current: <span id="tgtCurrent" style="color:#4f8ef7">—</span></span>
+              <span style="font-size:0.85rem;color:var(--text-muted)">Target: <strong id="tgtValue" style="color:var(--text)">Not set</strong></span>
+            </div>
+            <div class="target-bar-track"><div class="target-bar-fill" id="tgtBar" style="width:0%"></div></div>
+            <div class="d-flex justify-content-between" style="font-size:0.72rem;color:var(--text-muted)">
+              <span>0</span>
+              <span id="tgtPct" style="color:#4f8ef7;font-weight:700">0%</span>
+              <span id="tgtMax">150</span>
+            </div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;" id="tgtMsg"></div>
+          </div>
+          <div class="edit-target-form" id="targetForm">
+            <label style="font-size:0.78rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px;">Set Target Score (0–150)</label>
+            <div class="d-flex gap-2 mt-2">
+              <input type="number" id="targetInput" class="form-control" placeholder="e.g. 120" min="0" max="150">
+              <button class="btn-set-target" onclick="saveTarget()">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Announcements -->
+      <div class="info-card animate-up" style="animation-delay:0.2s">
+        <div class="card-header"><h6 class="text-white mb-0 fw-semibold">📢 Announcements</h6></div>
+        <div class="card-body" id="profileAnnList">
+          <div class="text-center empty-state py-2">No announcements.</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="col-lg-7">
+
+      <!-- KPI Trend Chart -->
+      <div class="info-card animate-up" style="animation-delay:0.1s">
+        <div class="card-header"><h6 class="text-white mb-0 fw-semibold">📈 KPI Trend Graph</h6></div>
+        <div class="card-body">
+          <div id="chartEmpty" class="text-center empty-state py-4">No monthly KPI data yet. <a href="add_kpi.html">Add KPI →</a></div>
+          <div class="chart-wrap" id="chartWrap" style="display:none"><canvas id="trendChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Monthly Breakdown -->
+      <div class="info-card animate-up" style="animation-delay:0.15s">
+        <div class="card-header"><h6 class="text-white mb-0 fw-semibold">📋 Monthly Breakdown</h6></div>
+        <div class="card-body p-0" id="monthlyBody">
+          <div class="text-center empty-state py-4 px-3">No KPI entries yet.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+  let trendChart = null;
+  let currentEmpId = null;
+
+  function getEmployees() { return JSON.parse(localStorage.getItem('kpi_employees')||'[]'); }
+  function saveEmployees(l) { localStorage.setItem('kpi_employees', JSON.stringify(l)); }
+  function getKPIs()      { return JSON.parse(localStorage.getItem('kpi_entries')||'[]'); }
+  function getTargets()   { return JSON.parse(localStorage.getItem('kpi_targets')||'{}'); }
+  function saveTargets(t) { localStorage.setItem('kpi_targets', JSON.stringify(t)); }
+  function getAnnouncements() { return JSON.parse(localStorage.getItem('kpi_announcements')||'[]'); }
+
+  function getPerf(s) {
+    if (s >= 120) return { label:'Excellent', pillCls:'pill-excellent', barColor:'#28a745' };
+    if (s >= 90)  return { label:'Good',      pillCls:'pill-good',      barColor:'#ffc107' };
+    return               { label:'Poor',      pillCls:'pill-poor',      barColor:'#dc3545' };
+  }
+
+  function fmtMonth(m) {
+    if (!m) return '—';
+    const [y, mo] = m.split('-');
+    return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1]+' '+y;
+  }
+
+  function toggleTargetForm() {
+    const f = document.getElementById('targetForm');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function saveTarget() {
+    const val = parseInt(document.getElementById('targetInput').value);
+    if (isNaN(val) || val < 0 || val > 150) { alert('Enter a valid score between 0 and 150.'); return; }
+    const targets = getTargets();
+    targets[currentEmpId] = val;
+    saveTargets(targets);
+    document.getElementById('targetForm').style.display = 'none';
+    document.getElementById('targetInput').value = '';
+    renderTarget(currentEmpId);
+  }
+
+  function renderTarget(empId) {
+    const employees = getEmployees();
+    const emp = employees.find(e => e.id == empId);
+    if (!emp) return;
+    const targets = getTargets();
+    const target  = targets[empId];
+    document.getElementById('tgtCurrent').textContent = emp.kpi;
+    if (!target) {
+      document.getElementById('tgtValue').textContent = 'Not set';
+      document.getElementById('tgtBar').style.width   = '0%';
+      document.getElementById('tgtPct').textContent   = '0%';
+      document.getElementById('tgtMax').textContent   = '150';
+      document.getElementById('tgtMsg').textContent   = 'No target set. Click Edit to set one.';
+      return;
+    }
+    const pct = Math.min(Math.round((emp.kpi / target) * 100), 100);
+    const remaining = Math.max(target - emp.kpi, 0);
+    document.getElementById('tgtValue').textContent     = target;
+    document.getElementById('tgtBar').style.width       = pct + '%';
+    document.getElementById('tgtPct').textContent       = pct + '% achieved';
+    document.getElementById('tgtMax').textContent       = target;
+    document.getElementById('tgtMsg').textContent       = remaining > 0
+      ? `${remaining} more points needed to reach the target.`
+      : '🎉 Target achieved!';
+  }
+
+  function renderAnnouncements() {
+    const anns = getAnnouncements();
+    const el   = document.getElementById('profileAnnList');
+    if (!anns.length) { el.innerHTML = '<div class="text-center empty-state py-2">No announcements.</div>'; return; }
+    el.innerHTML = anns.slice(0, 5).map(a => `
+      <div class="ann-item">
+        <div class="ann-title">📢 ${a.title}</div>
+        <div class="ann-body">${a.body}</div>
+        <div class="ann-date">🕒 ${a.date}</div>
+      </div>`).join('');
+  }
+
+  function renderTrendChart(entries) {
+    const wrap  = document.getElementById('chartWrap');
+    const empty = document.getElementById('chartEmpty');
+    if (!entries.length) { wrap.style.display = 'none'; empty.style.display = 'block'; return; }
+    wrap.style.display  = 'block';
+    empty.style.display = 'none';
+
+    const isDark    = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+    const tickColor = isDark ? '#8b949e' : '#6c757d';
+
+    const labels = entries.map(e => fmtMonth(e.month));
+    const scores = entries.map(e => e.score);
+    const ptColors = entries.map(e => getPerf(e.score).barColor);
+
+    if (trendChart) { trendChart.destroy(); trendChart = null; }
+
+    trendChart = new Chart(document.getElementById('trendChart').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'KPI Score',
+          data: scores,
+          borderColor: '#4f8ef7',
+          backgroundColor: 'rgba(79,142,247,0.1)',
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: ptColors,
+          pointRadius: 6,
+          pointHoverRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 800, easing: 'easeOutQuart' },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: isDark ? '#161b22' : '#fff',
+            titleColor: isDark ? '#e6edf3' : '#212529',
+            bodyColor:  isDark ? '#e6edf3' : '#212529',
+            borderColor: gridColor, borderWidth: 1, padding: 10, cornerRadius: 8,
+            callbacks: { label: c => ` Score: ${c.raw} (${getPerf(c.raw).label})` }
+          }
+        },
+        scales: {
+          y: { beginAtZero: false, min: 0, max: 160, ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } },
+          x: { ticks: { color: tickColor, font: { size: 11 } }, grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  function renderMonthlyBreakdown(entries) {
+    const el = document.getElementById('monthlyBody');
+    if (!entries.length) { el.innerHTML = '<div class="text-center empty-state py-4 px-3">No KPI entries yet.</div>'; return; }
+    el.innerHTML = '<div style="padding:0 20px">' + [...entries].reverse().map(e => {
+      const perf = getPerf(e.score);
+      const pct  = Math.min(Math.round((e.score / 150) * 100), 100);
+      return `<div class="month-row">
+        <div style="min-width:80px;font-weight:600;font-size:0.82rem">${fmtMonth(e.month)}</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);min-width:140px">T:${e.tasks} B:${e.bugs} H:${e.hours}</div>
+        <div class="sbar-wrap">
+          <div class="sbar"><div class="sbar-fill" style="width:${pct}%;background:${perf.barColor}"></div></div>
+          <strong style="color:${perf.barColor};font-size:0.85rem;min-width:28px">${e.score}</strong>
+        </div>
+        <span class="pill ${perf.pillCls}">${perf.label}</span>
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  function init() {
+    const params = new URLSearchParams(window.location.search);
+    const empId  = params.get('id');
+    if (!empId) { document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#dc3545">No employee selected. <a href="dashboard.html">Go back</a></div>'; return; }
+    currentEmpId = empId;
+
+    const employees = getEmployees();
+    const emp = employees.find(e => e.id == empId);
+    if (!emp) { document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#dc3545">Employee not found. <a href="dashboard.html">Go back</a></div>'; return; }
+
+    const kpis    = getKPIs();
+    const entries = kpis.filter(k => k.empId == empId).sort((a, b) => a.month.localeCompare(b.month));
+    const perf    = getPerf(emp.kpi);
+
+    const avgScore  = entries.length ? Math.round(entries.reduce((s, e) => s + e.score, 0) / entries.length) : emp.kpi;
+    const bestScore = entries.length ? Math.max(...entries.map(e => e.score)) : emp.kpi;
+    const streak    = (() => {
+      if (!entries.length) return 0;
+      let count = 0;
+      for (const e of [...entries].reverse()) { if (e.score >= 90) count++; else break; }
+      return count;
+    })();
+
+    // Hero
+    document.getElementById('profileAvatar').textContent = emp.name.charAt(0).toUpperCase();
+    document.getElementById('profileName').textContent   = emp.name;
+    document.getElementById('profileSub').textContent    = `${emp.department} · ${emp.designation}`;
+    document.getElementById('profileScore').textContent  = emp.kpi;
+    document.getElementById('profileScore').style.color  = perf.barColor;
+    document.getElementById('profileBadge').innerHTML    = `<span class="pill ${perf.pillCls}">${perf.label}</span>`;
+
+    // Stats
+    document.getElementById('smAvg').textContent    = avgScore;
+    document.getElementById('smBest').textContent   = bestScore;
+    document.getElementById('smMonths').textContent = entries.length;
+    document.getElementById('smStreak').textContent = streak;
+
+    // Info
+    document.getElementById('infoName').textContent  = emp.name;
+    document.getElementById('infoDept').textContent  = emp.department;
+    document.getElementById('infoDesig').textContent = emp.designation;
+    document.getElementById('infoKpi').textContent   = emp.kpi;
+    document.getElementById('infoStatus').innerHTML  = `<span class="pill ${perf.pillCls}">${perf.label}</span>`;
+    document.getElementById('infoJoined').textContent = emp.joinDate
+      ? new Date(emp.joinDate).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })
+      : 'Not recorded';
+
+    renderTarget(empId);
+    renderAnnouncements();
+    renderTrendChart(entries);
+    renderMonthlyBreakdown(entries);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => { setTimeout(init, 700); });
+</script>
+</body>
+</html>

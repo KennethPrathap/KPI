@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html data-theme="light">
+<head>
+<title>Monthly Report</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<script src="shared.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  .page-card { background:var(--surface); border:none; border-radius:16px; box-shadow:var(--shadow); overflow:hidden; margin-bottom:20px; }
+  .page-card .card-header { background:var(--card-hdr); border:none; padding:14px 22px; }
+  .stat-chip { display:inline-flex; align-items:center; gap:7px; background:var(--surface); border-radius:10px; padding:10px 18px; box-shadow:var(--shadow); font-size:0.85rem; color:var(--text); }
+  .chip-dot { width:10px; height:10px; border-radius:50%; }
+  .empty-state { color:var(--text-muted); font-size:0.88rem; }
+  .pill { padding:3px 10px; border-radius:99px; font-size:0.72rem; font-weight:700; }
+  .pill-excellent { background:rgba(40,167,69,0.15);  color:#28a745; }
+  .pill-good      { background:rgba(255,193,7,0.15);  color:#d4a017; }
+  .pill-poor      { background:rgba(220,53,69,0.15);  color:#dc3545; }
+  .chart-wrap { position:relative; height:220px; }
+  .trend-up   { color:#28a745; font-weight:700; font-size:0.82rem; }
+  .trend-down { color:#dc3545; font-weight:700; font-size:0.82rem; }
+  .trend-same { color:var(--text-muted); font-size:0.82rem; }
+  .sbar-wrap { display:flex; align-items:center; gap:8px; }
+  .sbar { flex:1; height:6px; border-radius:99px; background:var(--border); overflow:hidden; max-width:90px; }
+  .sbar-fill { height:100%; border-radius:99px; }
+  .btn-print { background:linear-gradient(135deg,#0f3460,#4f8ef7); border:none; border-radius:9px; padding:8px 20px; font-weight:700; color:#fff; cursor:pointer; font-size:0.82rem; transition:all 0.2s; }
+  .btn-print:hover { opacity:0.9; }
+</style>
+</head>
+<body>
+<div id="navbarMount" data-page="monthly_report"></div>
+<div id="pageContent">
+<div class="container mt-4 pb-5">
+
+  <!-- Header controls -->
+  <div class="d-flex align-items-center gap-3 mb-4 flex-wrap animate-up">
+    <div>
+      <label style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-right:8px;">Select Month:</label>
+      <input type="month" id="monthPicker" class="form-control d-inline-block" style="width:auto;" onchange="loadReport()">
+    </div>
+    <button class="btn-print" onclick="window.print()">🖨 Print Report</button>
+    <a href="dashboard.html" class="nav-btn nav-btn-ghost" style="font-size:0.8rem;padding:6px 14px;">← Dashboard</a>
+  </div>
+
+  <!-- Summary chips -->
+  <div class="d-flex flex-wrap gap-3 mb-4 animate-up" id="chipRow">
+    <div class="stat-chip"><span class="chip-dot" style="background:#4f8ef7"></span>Employees: <strong id="chipTotal">0</strong></div>
+    <div class="stat-chip"><span class="chip-dot" style="background:#28a745"></span>Excellent: <strong id="chipExcellent">0</strong></div>
+    <div class="stat-chip"><span class="chip-dot" style="background:#ffc107"></span>Good: <strong id="chipGood">0</strong></div>
+    <div class="stat-chip"><span class="chip-dot" style="background:#dc3545"></span>Poor: <strong id="chipPoor">0</strong></div>
+    <div class="stat-chip"><span class="chip-dot" style="background:#6f42c1"></span>Avg Score: <strong id="chipAvg">—</strong></div>
+    <div class="stat-chip"><span class="chip-dot" style="background:#fd7e14"></span>At Risk: <strong id="chipRisk">0</strong></div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <!-- Score table -->
+      <div class="page-card animate-up" style="animation-delay:0.1s">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="text-white mb-0 fw-semibold" id="reportTitle">Monthly KPI Report</h6>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="table mb-0">
+            <thead><tr><th>#</th><th>Employee</th><th>Dept</th><th>Tasks</th><th>Bugs</th><th>Hours</th><th>Score</th><th>Status</th><th>Trend</th></tr></thead>
+            <tbody id="reportTableBody">
+              <tr><td colspan="9" class="text-center empty-state py-4">Select a month to view the report.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <!-- Chart -->
+      <div class="page-card animate-up" style="animation-delay:0.15s">
+        <div class="card-header"><h6 class="text-white mb-0 fw-semibold">📈 Score Distribution</h6></div>
+        <div class="card-body">
+          <div id="chartEmpty" class="text-center empty-state py-4">No data for selected month.</div>
+          <div class="chart-wrap" id="chartWrap" style="display:none"><canvas id="reportChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Top & Bottom performers -->
+      <div class="page-card animate-up" style="animation-delay:0.2s">
+        <div class="card-header"><h6 class="text-white mb-0 fw-semibold">🏆 Top Performers</h6></div>
+        <div class="card-body p-0" id="topPerformersBody">
+          <div class="text-center empty-state py-4">No data.</div>
+        </div>
+      </div>
+
+      <div class="page-card animate-up" style="animation-delay:0.25s">
+        <div class="card-header"><h6 class="text-white mb-0 fw-semibold">📉 Needs Improvement</h6></div>
+        <div class="card-body p-0" id="bottomPerformersBody">
+          <div class="text-center empty-state py-4">No data.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+  let reportChart = null;
+
+  function getEmployees() { return JSON.parse(localStorage.getItem('kpi_employees')||'[]'); }
+  function getKPIs()      { return JSON.parse(localStorage.getItem('kpi_entries')||'[]'); }
+
+  function getPerf(s) {
+    if (s >= 120) return { label:'Excellent', pillCls:'pill-excellent', barColor:'#28a745', chartColor:'rgba(40,167,69,0.8)' };
+    if (s >= 90)  return { label:'Good',      pillCls:'pill-good',      barColor:'#ffc107', chartColor:'rgba(255,193,7,0.85)' };
+    return               { label:'Poor',      pillCls:'pill-poor',      barColor:'#dc3545', chartColor:'rgba(220,53,69,0.8)'  };
+  }
+
+  function fmtMonth(m) {
+    if (!m) return '—';
+    const [y, mo] = m.split('-');
+    return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1]+' '+y;
+  }
+
+  function prevMonth(m) {
+    const d = new Date(m + '-01');
+    d.setMonth(d.getMonth()-1);
+    return d.toISOString().slice(0,7);
+  }
+
+  function loadReport() {
+    const month = document.getElementById('monthPicker').value;
+    if (!month) return;
+
+    document.getElementById('reportTitle').textContent = `KPI Report — ${fmtMonth(month)}`;
+
+    const employees = getEmployees();
+    const kpis      = getKPIs();
+    const prev      = prevMonth(month);
+
+    const thisMonthEntries = kpis.filter(k => k.month === month);
+    const prevMonthMap     = {};
+    kpis.filter(k => k.month === prev).forEach(k => prevMonthMap[k.empId] = k.score);
+
+    const tbody = document.getElementById('reportTableBody');
+
+    if (!thisMonthEntries.length) {
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center empty-state py-4">No KPI entries for ${fmtMonth(month)}.</td></tr>`;
+      clearChips(); clearChart(); clearPerformers(); return;
+    }
+
+    const sorted = [...thisMonthEntries].sort((a,b) => b.score - a.score);
+
+    let excellent=0, good=0, poor=0, risk=0, total=0;
+    let scoreSum = 0;
+
+    tbody.innerHTML = sorted.map((e, i) => {
+      const perf = getPerf(e.score);
+      const pct  = Math.min(Math.round((e.score/150)*100), 100);
+      const ps   = prevMonthMap[e.empId];
+      let trend  = '<span class="trend-same">—</span>';
+      if (ps !== undefined) {
+        const d = e.score - ps;
+        trend = d > 0
+          ? `<span class="trend-up">▲ +${d}</span>`
+          : d < 0
+          ? `<span class="trend-down">▼ ${d}</span>`
+          : `<span class="trend-same">— 0</span>`;
+        if (d < 0 || e.score < 90) risk++;
+      } else if (e.score < 90) risk++;
+
+      if (e.score >= 120) excellent++;
+      else if (e.score >= 90) good++;
+      else poor++;
+      scoreSum += e.score; total++;
+
+      const emp = employees.find(em => em.id == e.empId);
+      return `<tr>
+        <td>${i+1}</td>
+        <td><strong>${e.empName}</strong></td>
+        <td style="font-size:0.8rem;color:var(--text-muted)">${emp ? emp.department : '—'}</td>
+        <td>${e.tasks}</td><td>${e.bugs}</td><td>${e.hours}</td>
+        <td>
+          <div class="sbar-wrap">
+            <div class="sbar"><div class="sbar-fill" style="width:${pct}%;background:${perf.barColor}"></div></div>
+            <strong style="color:${perf.barColor}">${e.score}</strong>
+          </div>
+        </td>
+        <td><span class="pill ${perf.pillCls}">${perf.label}</span></td>
+        <td>${trend}</td>
+      </tr>`;
+    }).join('');
+
+    // Chips
+    const avg = total ? Math.round(scoreSum/total) : null;
+    document.getElementById('chipTotal').textContent     = total;
+    document.getElementById('chipExcellent').textContent = excellent;
+    document.getElementById('chipGood').textContent      = good;
+    document.getElementById('chipPoor').textContent      = poor;
+    document.getElementById('chipAvg').textContent       = avg !== null ? avg : '—';
+    document.getElementById('chipRisk').textContent      = risk;
+
+    // Chart
+    const isDark    = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+    const tickColor = isDark ? '#8b949e' : '#6c757d';
+    document.getElementById('chartWrap').style.display  = 'block';
+    document.getElementById('chartEmpty').style.display = 'none';
+    if (reportChart) { reportChart.destroy(); reportChart = null; }
+    reportChart = new Chart(document.getElementById('reportChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: sorted.map(e => e.empName),
+        datasets: [{ label:'Score', data: sorted.map(e => e.score), backgroundColor: sorted.map(e => getPerf(e.score).chartColor), borderRadius:6, borderWidth:0, barThickness:22 }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: c => ` ${c.raw} pts — ${getPerf(c.raw).label}` } } },
+        scales: {
+          y: { beginAtZero:true, max:160, grid:{color:gridColor}, ticks:{color:tickColor,font:{size:10}} },
+          x: { grid:{display:false}, ticks:{color:tickColor,font:{size:10}} }
+        },
+        animation:{ duration:700, easing:'easeOutQuart' }
+      }
+    });
+
+    // Top & Bottom performers
+    const top3 = sorted.slice(0, 3);
+    const bot3 = [...sorted].reverse().slice(0, 3).filter(e => e.score < 90);
+    const medals = ['🥇','🥈','🥉'];
+
+    document.getElementById('topPerformersBody').innerHTML = top3.length
+      ? '<div style="padding:0 18px">' + top3.map((e,i) => `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+            <span style="font-size:1.3rem">${medals[i]}</span>
+            <div style="flex:1"><div style="font-weight:700;font-size:0.88rem">${e.empName}</div></div>
+            <strong style="color:${getPerf(e.score).barColor}">${e.score}</strong>
+          </div>`).join('') + '</div>'
+      : '<div class="text-center empty-state py-4">No data.</div>';
+
+    document.getElementById('bottomPerformersBody').innerHTML = bot3.length
+      ? '<div style="padding:0 18px">' + bot3.map(e => `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+            <span style="font-size:1.1rem">⚠️</span>
+            <div style="flex:1"><div style="font-weight:700;font-size:0.88rem">${e.empName}</div></div>
+            <strong style="color:#dc3545">${e.score}</strong>
+          </div>`).join('') + '</div>'
+      : '<div class="text-center empty-state py-4">No poor performers this month! 🎉</div>';
+  }
+
+  function clearChips() {
+    ['chipTotal','chipExcellent','chipGood','chipPoor','chipRisk'].forEach(id => document.getElementById(id).textContent = '0');
+    document.getElementById('chipAvg').textContent = '—';
+  }
+  function clearChart() {
+    document.getElementById('chartWrap').style.display  = 'none';
+    document.getElementById('chartEmpty').style.display = 'block';
+    if (reportChart) { reportChart.destroy(); reportChart = null; }
+  }
+  function clearPerformers() {
+    document.getElementById('topPerformersBody').innerHTML    = '<div class="text-center empty-state py-4">No data.</div>';
+    document.getElementById('bottomPerformersBody').innerHTML = '<div class="text-center empty-state py-4">No data.</div>';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('monthPicker').value = new Date().toISOString().slice(0,7);
+    loadReport();
+  });
+</script>
+</body>
+</html>
